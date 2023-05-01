@@ -1,49 +1,76 @@
 import gym
 import numpy as np
+import random
 
-# initializing environment
+# initialize environment
 env = gym.make("FrozenLake-v1", render_mode="rgb_array", is_slippery=False)
 
-# initializing Q-table
+# initialize Q-table
 qtable = np.zeros((16, 4))
 print("Q-table before training: ")
 print(qtable)
 
-# initializing paramaters
+# training paramaters
 iterations = 1000
 learning_rate = 0.5
 discount_factor = 0.9
-number_of_completions = 0
+epsilon = 1
+epsilon_decay = 0.001
 
 # Training
 for _ in range(iterations):
     state, info = env.reset()
     done = False
 
-    # keep training until iteration terminated
+    # until the agent gets stuck or reaches the goal, keep training it
     while not done:
 
-        # make highest yielding move if applicable, else: random move
-        if np.max(qtable[state]) > 0:
-            action = np.argmax(qtable[state])  
+        # implement exploration over exploitation logic (based on epsilon value)
+        random_int = np.random.random()
+        if random_int < epsilon:
+          action = env.action_space.sample()
         else:
-            action = env.action_space.sample()
+          action = np.argmax(qtable[state])
     
-        # actually make the move
+        # make selected move
         next_state, reward, done, truncated, info = env.step(action)
 
         # execute (update value) formula
         qtable[state, action] = qtable[state, action] + learning_rate * (reward + discount_factor * np.max(qtable[next_state]) - qtable[state, action])
 
-        # update state
+        # update current state
         state = next_state
-
-        # if completed add 1 to completions
-        if reward == 1:
-            number_of_completions += 1
+        
+    # decay epsilon
+    epsilon = max(epsilon - epsilon_decay, 0)
 
 print()
 print("Q-table after training")
 print(qtable)
-print()
-print(f"Number of completions: {number_of_completions} (after 1000 iterations)")
+
+
+eval_episodes = 100
+nb_success = 0
+
+# Evaluation
+for _ in range(eval_episodes):
+    state, info = env.reset()
+    done = False
+    
+    # until the agent gets stuck or reaches the goal, keep training it
+    while not done:
+        # choose the action with the highest value in the current state
+        action = np.argmax(qtable[state])
+
+        # implement this action
+        next_state, reward, done, truncated, info = env.step(action)
+
+        # update current state
+        state = next_state
+
+        # if reward attained, it means agent solved the game
+        nb_success += reward
+
+# check the success rate
+print (f"Success rate after evaluation = {nb_success/eval_episodes*100}%")
+
